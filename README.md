@@ -47,13 +47,13 @@ How many subjects were males/females
 **Table Layout**:
 | Column | Type | Description |
 |------------|----------------------|----------------------------------------------|
-| subject_id | String Primary Key | Unique ID |
-| project_id | Foriegn Key | Acts as a link from sample to project |
-| condition | String | condition of the subject |
-| age | Integer | Age at start of collection |
-| sex | Char | Gender either Male or Female |
-| treatment | String | treatment used on subject |
-| response | Boolean | True or False corresponding to Yes or No |
+| subject_id | TEXT PRIMARY KEY | Unique ID |
+| project_id | FOREIGN KEY | Acts as a link from sample to project |
+| condition | TEXT | condition of the subject |
+| age | INTEGER | Age at start of collection |
+| sex | CHAR | Gender either M or F |
+| treatment | TEXT | treatment used on subject |
+| response | BOOLEAN | True or False corresponding to Yes or No |
 
 #### 3. Samples Table
 **Purpose**: This table is to hold each collection item. That way, if there is more collections, we just have to add another entry here.  
@@ -61,10 +61,10 @@ How many subjects were males/females
 
 | Column | Type | Description |
 |------------|-------------|------------------------------------------|
-| sample_id | PK (String) | Unique ID (e.g., "sample00000") |
-| subject_id | FK | Link to Subjects |
-| sample_type | String | PBMC, etc. |
-| time_point | Integer | 0, 7, 14 (hours) |
+| sample_id | TEXT PRIMARY KEY | Unique ID |
+| subject_id | FOREIGN KEY | Link to Subjects |
+| sample_type | TEXT | Records the type of sample |
+| time_point | REAL | Decimal Value Represented in hours |
 
 #### 4. Cell_Counts Table
 **Purpose**: A table to hold flow cytometry results. If new cell types are added to the table then its just another entry.  
@@ -72,10 +72,10 @@ How many subjects were males/females
 
 | Column | Type | Description |
 |------------|---------|-----------------------------------|
-| count_id | PK (Int) | Auto-incrementing ID |
-| sample_id | FK | Link to Samples |
-| cell_type | String | b_cell, cd8_t_cell, etc. |
-| cell_count | Integer | The numerical result |
+| count_id | INTEGER PRIMARY KEY | Auto-incrementing ID |
+| sample_id | TEXT FOREIN KEY | Link to Samples |
+| cell_type | TEXT | b_cell, cd8_t_cell, etc. |
+| cell_count | INTEGER | The numerical result |
 
 #### Database Design Rational:
 I designed the database to take into account that sometimes study data can grow. New cells might be analyzed, more time points might be taken and more projects 
