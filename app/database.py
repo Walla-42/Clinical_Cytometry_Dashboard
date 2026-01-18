@@ -1,12 +1,69 @@
 import sqlite3
 import pandas as pd
+import logging
+from logging.handlers import RotatingFileHandler
+import functools
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+file_handler = RotatingFileHandler("app.log", maxBytes=1_000_000, backupCount=2)
+file_handler.setLevel(logging.ERROR)
+log_format = logging.Formatter("%(asctime)s %(levelname)s %(name)s - %(message)s")
+file_handler.setFormatter(log_format)
+
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+console.setFormatter(log_format)
+
+if not logger.handlers:
+    logger.addHandler(file_handler)
+    logger.addHandler(console)
+
+class DataAccessError(Exception):
+    """User-facing error indicating data could not be loaded."""
+    DEFAULT_MSG = "Unable to load data at this time. Please try again later."
+
+    def __init__(self, message=None, *, user_message=None, context=None):
+        super().__init__(message or self.DEFAULT_MSG)
+        self.user_message = user_message or self.DEFAULT_MSG
+        self.context = context
+
+def log_db_errors(func):
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        try:
+            return func(self, *args, **kwargs)
+        except sqlite3.Error as e:
+            logger.exception("SQLite error in %s", func.__name__)
+            try:
+                self.conn.rollback()
+            except Exception:
+                logger.debug("Error: Unable to rollback database.")
+            raise DataAccessError(context={"method": func.__name__}) from e
+        except Exception as e:
+            logger.exception("Unexpected error in %s", func.__name__)
+            try:
+                self.conn.rollback()
+            except Exception:
+                logger.debug("Error: Unable to rollback database.")
+            raise DataAccessError(context={"method": func.__name__}) from e
+    return wrapper
 
 class Project_Database():
     def __init__(self, db_name="bobs_flow_project.db"):
-        self.conn = sqlite3.connect(db_name)
-        self.cursor = self.conn.cursor()
-        self._create_tables()
+        try:
+            self.conn = sqlite3.connect(db_name, check_same_thread=False)
+            self.cursor = self.conn.cursor()
+            self._create_tables()
+        except Exception as e:
+            logger.exception("Failed to initialize database")
+            raise DataAccessError(
+                user_message="Unable to connect to the database.",
+                context={"db_name": db_name}
+            ) from e
 
+    @log_db_errors
     def _create_tables(self):
         """A function to initalize the relational database
         
@@ -43,20 +100,22 @@ class Project_Database():
                             sample TEXT PRIMARY KEY,
                             subject TEXT,
                             sample_type TEXT,
-                            time_from_treatment_start INTEGER,
+                            time_from_treatment_start REAL,
                             FOREIGN KEY (subject) REFERENCES subjects (subject)
                         )""")
         
         # Cell_Counts Table
         self.cursor.execute("""
                         CREATE TABLE IF NOT EXISTS cell_counts (
-                            count_id INTEGER PRIMARY KEY,
+                            count_id INTEGER PRIMARY KEY AUTOINCREMENT,
                             sample TEXT,
                             population TEXT,
                             count INTEGER,
                             FOREIGN KEY (sample) REFERENCES samples (sample)
                         )""")
-    
+
+
+    @log_db_errors
     def load_csv_data(self, csv_data_filepath):
         """Takes a DataFrame and distributes it across the relational database tables.
         
@@ -90,12 +149,14 @@ class Project_Database():
         )
         self.conn.commit()
 
+    @log_db_errors
     def get_conditions(self, project_id):
         self.cursor.execute(
             "SELECT DISTINCT condition FROM subjects WHERE project = ?", (project_id,)
         )
         return [row[0] for row in self.cursor.fetchall()]
 
+    @log_db_errors
     def get_sample_types(self, project_id):
         self.cursor.execute(
             """SELECT DISTINCT sam.sample_type 
@@ -105,6 +166,7 @@ class Project_Database():
         )
         return [row[0] for row in self.cursor.fetchall()]
 
+    @log_db_errors
     def get_time_points(self, project_id):
         self.cursor.execute(
             """SELECT DISTINCT sam.time_from_treatment_start 
@@ -114,12 +176,14 @@ class Project_Database():
         )
         return [row[0] for row in self.cursor.fetchall()]
 
+    @log_db_errors
     def get_treatments(self, project_id):
         self.cursor.execute(
             "SELECT DISTINCT treatment FROM subjects WHERE project = ?", (project_id,)
         )
         return [row[0] for row in self.cursor.fetchall()]
     
+    @log_db_errors
     def get_projects(self):
         self.cursor.execute(
             "SELECT DISTINCT project FROM projects"
@@ -127,6 +191,7 @@ class Project_Database():
         project_ids = [row[0] for row in self.cursor.fetchall()]
         return project_ids
 
+    @log_db_errors
     def get_relative_frequencies(self):
         """A method that calculates relative frequencies for all samples
         
@@ -157,6 +222,7 @@ class Project_Database():
         relative_frequency = pd.read_sql(query, self.conn)
         return relative_frequency
 
+    @log_db_errors
     def get_statistical_subset(self, condition, sample_type, time_point, treatment):
         """A method that filters data for responder vs non-responder analysis
 
@@ -186,6 +252,11 @@ class Project_Database():
         return sample_subset
 
     def close_connection(self):
-        self.conn.close()
+        logger.info("Closing database connection")
+        if self.conn:
+            try:
+                self.conn.close()
+            except Exception:
+                logger.warning("Failed to close database connection")
 
 
