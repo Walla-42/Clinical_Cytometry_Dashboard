@@ -30,7 +30,7 @@ How many subjects were responders/non-responders
 How many subjects were males/females
 
 # Interviewer Test Setup:
->[!NOTE]: For this project I used a conda environment. It is important to set up the environment using the environment.yaml so all dependancies are available. 
+>[!NOTE]: For this project I used a conda environment. You can setup the conda environment with teh environment.yaml file or a virtual environment with the requirements.txt file using pip.
 1. Setup Conda Environment 
 ```sh
     conda env create -n environment.yaml
@@ -40,8 +40,8 @@ How many subjects were males/females
 ```sh
     streamlit run app/dashboard.py
 ```
-3. Upload the `.csv` data contained in the `/data` directory and clear the message to reload the page
->[!NOTE]: A link to the hosted webapp is available here [webapp link]()
+3. Upload the `.csv` data contained in the `/data` directory and clear the `success` message to reload the page
+>[!NOTE]: A link to the hosted webapp is also available here [webapp link](https://clinicalcytometrydashboard-9af8az47b63qzsiramcyd7.streamlit.app)
 
 
 # Technical Design
