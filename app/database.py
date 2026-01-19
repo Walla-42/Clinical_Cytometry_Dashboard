@@ -158,6 +158,15 @@ class Project_Database():
                 user_message="This data has already been loaded. Please upload new data.",
                 context={"csv_file": str(csv_file)}
             ) from e
+        except (KeyError) as e:
+            logger.exception("Error: User uploaded incompatable data file")
+            raise DataAccessError(
+                user_message="Error: This Data is not compatable with this application. Please upload another file.",
+                context={"csv_file": str(csv_file)}
+            ) from e
+        except (Exception) as e:
+            logger.exception("Error: Unknown exception occured when loading user csv file into database")
+            raise DataAccessError() from e
         
     @log_db_errors
     def get_conditions(self, project_id):
