@@ -155,7 +155,7 @@ def render_statistical_analysis(project_id):
             index=0
         )
     
-    # Fetch statistical data
+    #============================================ Plot Section =======================================================
     df_stats = get_statistical_subset(selected_condition, selected_sample_type, selected_time_points, selected_treatment, selected_gender)
     
     if df_stats is not None and not df_stats.empty:
@@ -182,7 +182,7 @@ def render_statistical_analysis(project_id):
         )
         st.plotly_chart(fig, width="stretch")
         
-        # Data Overview
+        #============================================ Data Summary Section =======================================================
         st.subheader("Data Summary")
         
         # Get unique subjects and their metadata for the filtered data
@@ -235,13 +235,15 @@ def render_statistical_analysis(project_id):
                 st.write(f"**Males:** {non_responder_male}")
                 st.write(f"**Females:** {non_responder_female}")
 
-
+        #============================================ Statistics Section =======================================================
         st.subheader("Statistics")
         # Calculate t-tests for each cell population
         stats_results = []
         for cell_type in sorted(df_stats['population'].unique()):
             responders = df_stats[(df_stats['population'] == cell_type) & (df_stats['response'] == 'yes')]['percentage'].values
             non_responders = df_stats[(df_stats['population'] == cell_type) & (df_stats['response'] == 'no')]['percentage'].values
+            
+            avg_count = df_stats[df_stats['population'] == cell_type]['count'].mean()
             
             if len(responders) > 0 and len(non_responders) > 0:
                 t_stat, p_value = ttest_ind(responders, non_responders, equal_var=False)
@@ -250,9 +252,10 @@ def render_statistical_analysis(project_id):
                     "Cell Type": cell_type,
                     "T-Statistic": f"{t_stat:.4f}",
                     "P-Value": f"{p_value:.6f}",
+                    "Avg Count": f"{avg_count:.2f}",
                     "Significant (α=0.05)": significant
                 })
-        
+
         if stats_results:
             stats_df = pd.DataFrame(stats_results).style.map(conditional_colors)
             st.dataframe(stats_df, width='stretch', height=223)

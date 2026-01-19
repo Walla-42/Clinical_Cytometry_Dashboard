@@ -256,7 +256,7 @@ class Project_Database():
         """
 
         query = f"""
-            SELECT sub.response, sub.subject, c.population, 
+            SELECT sub.response, sub.subject, c.population, c.count,
                 (CAST(c.count AS FLOAT) / t.total_count) * 100 AS percentage
             FROM subjects sub
             JOIN samples sam ON sub.subject = sam.subject
@@ -273,12 +273,12 @@ class Project_Database():
 
         if gender and gender.lower() != "all":
             query += "AND sub.sex = ?"
-            params.append(gender)
+            params.append(gender[0].upper())
 
         self.cursor.execute(query, params)
         rows = self.cursor.fetchall()
         
-        columns = ["response", "subject", "population", "percentage"]
+        columns = ["response", "subject", "population", "count", "percentage"]
         data_dict = {col: [row[i] for row in rows] for i, col in enumerate(columns)}
         return pd.DataFrame(data_dict)
 
