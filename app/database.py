@@ -92,7 +92,7 @@ class Project_Database():
                             age INTEGER,
                             sex CHAR,
                             treatment TEXT,
-                            response INTEGER,
+                            response TEXT,
                             FOREIGN KEY (project) REFERENCES projects (project)
                         )""")
         
@@ -117,7 +117,6 @@ class Project_Database():
                         )""")
 
 
-    @log_db_errors
     def load_csv_data(self, csv_file):
         """Takes a DataFrame and distributes it across the relational database tables.
         

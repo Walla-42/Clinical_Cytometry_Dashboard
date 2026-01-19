@@ -1,6 +1,8 @@
 import streamlit as st
 import plotly.express as px
 from database import DataAccessError, Project_Database
+from scipy.stats import ttest_ind
+import pandas as pd
 
 # Configure page
 st.set_page_config(layout="wide", page_title="Bob's Clinical Trial Dashboard")
@@ -13,8 +15,6 @@ def init_db():
     except DataAccessError as e:
         st.error(f"Database Error: {str(e.user_message)}")
         st.stop()
-
-db = init_db()
 
 # Cached database queries
 @st.cache_data
@@ -78,7 +78,11 @@ def render_data_overview(df_freq):
     """Render the data overview section."""
     with st.container():
         st.header("Data Overview")
-        uploaded_file = st.file_uploader("Upload cell count data", type=["csv"])
+
+        if "file_upload_key" not in st.session_state:
+            st.session_state.file_upload_key = 0
+
+        uploaded_file = st.file_uploader("Upload cell count data", type=["csv"], key=f"upload_file_{st.session_state.file_upload_key}")
         if uploaded_file:
             try:
                 db.load_csv_data(uploaded_file)
@@ -86,8 +90,11 @@ def render_data_overview(df_freq):
                 st.cache_data.clear()
             except DataAccessError as e:
                 st.error(str(e.user_message))
+
+            st.session_state.file_upload_key += 1
+
         if df_freq is not None:
-            st.dataframe(df_freq, use_container_width=True, height=600)
+            st.dataframe(df_freq, width='stretch', height=600)
         else:
             st.info("No data available yet. Please upload a CSV file.")
 
@@ -156,24 +163,47 @@ def render_statistical_analysis(project_id):
             title=f"{pop} %: Responders vs Non-Responders",
             labels={"percentage": "Relative Frequency (%)", "response": "Response"}
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
         
-        # Statistics placeholder
         st.subheader("Statistics")
-        st.info("Statistics section - to be populated with analysis results")
+        
+        # Calculate t-tests for each cell population
+        stats_results = []
+        for cell_type in sorted(df_stats['population'].unique()):
+            responders = df_stats[(df_stats['population'] == cell_type) & (df_stats['response'] == 'yes')]['percentage'].values
+            non_responders = df_stats[(df_stats['population'] == cell_type) & (df_stats['response'] == 'no')]['percentage'].values
+            
+            if len(responders) > 0 and len(non_responders) > 0:
+                t_stat, p_value = ttest_ind(responders, non_responders, equal_var=False)
+                significant = "Yes" if p_value < 0.05 else "No"
+                stats_results.append({
+                    "Cell Type": cell_type,
+                    "T-Statistic": f"{t_stat:.4f}",
+                    "P-Value": f"{p_value:.6f}",
+                    "Significant (α=0.05)": significant
+                })
+        
+        if stats_results:
+            stats_df = pd.DataFrame(stats_results)
+            st.dataframe(stats_df, width='stretch', height=200)
+        else:
+            st.warning("Insufficient data for statistical analysis.")
     else:
         st.warning("No data available for the selected filters.")
 
 
 # App starts here: 
 st.title("Bob's Clinical Trial Dashboard")
-
-# Fetch filter options for selected project
-projects = get_projects()
+db = init_db()
+projects = get_projects() or []
 if not projects:
     st.error("No projects available. Please upload data.")
-    st.stop()
-select_project = st.selectbox("Project:", projects, index=0)
+
+select_project = st.selectbox(
+    "Project:",
+    options=projects,
+    index=0 if projects else 0,
+)
 
 overview_col, analysis_col = st.columns(2)
 with overview_col:
