@@ -167,7 +167,7 @@ def render_statistical_analysis(project_id):
         )
         st.plotly_chart(fig, width="stretch")
         
-                # Data Overview
+        # Data Overview
         st.subheader("Data Summary")
         
         # Get unique subjects and their metadata for the filtered data

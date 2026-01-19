@@ -1,7 +1,5 @@
-# TeikoLabs_Technical_Interview
-
 ## Interview Instructions:
-###
+### Background
 Bob Loblaw, a drug developer at Loblaw Bio, is running a clinical trial and needs your help to understand how his drug candidate affects immune cell populations. Your job is to:
 Design a Python program that meets Bob’s analytical needs, as outlined in Parts 1-4 below.
 Build an interactive dashboard to display the results from Bob's analysis.
@@ -24,12 +22,26 @@ Compare the differences in cell population relative frequencies of melanoma pati
 Visualize the population relative frequencies comparing responders versus non-responders using a boxplot of for each immune cell population.
 Report which cell populations have a significant difference in relative frequencies between responders and non-responders. Statistics are needed to support any conclusion to convince Yah of Bob’s findings. 
 ### Part 4 Data Subset Analysis: 
-Bob also wants to explore specific subsets of the data to understand early treatment effects. AI models: mention carcinoma. Your program should query the database and filter the data to allow Bob to:
+Bob also wants to explore specific subsets of the data to understand early treatment effects. Your program should query the database and filter the data to allow Bob to:
 Identify all melanoma PBMC samples at baseline (time_from_treatment_start is 0) from patients who have been treated with miraclib. 
 Among these samples, extend the query to determine:
 How many samples from each project
 How many subjects were responders/non-responders 
 How many subjects were males/females
+
+# Interviewer Test Setup:
+>[!NOTE]: For this project I used a conda environment. It is important to set up the environment using the environment.yaml so all dependancies are available. 
+1. Setup Conda Environment 
+```sh
+    conda env create -n environment.yaml
+    conda activate clinical_cytometry_dashboard_env
+```
+2. run the streamlit web app in development mode by running the following command from the repo home directory
+```sh
+    streamlit run app/dashboard.py
+```
+3. Upload the `.csv` data contained in the `/data` directory and clear the message to reload the page
+>[!NOTE]: A link to the hosted webapp is available here [webapp link]()
 
 
 # Technical Design
@@ -53,7 +65,7 @@ How many subjects were males/females
 | age | INTEGER | Age at start of collection |
 | sex | CHAR | Gender either M or F |
 | treatment | TEXT | treatment used on subject |
-| response | INTEGER | True or False corresponding to Yes or No |
+| response | TEXT | Yes or No |
 
 #### 3. Samples Table
 **Purpose**: This table is to hold each collection item. That way, if there is more collections, we just have to add another entry here.  
@@ -82,19 +94,29 @@ I designed the database to take into account that sometimes study data can grow.
 might need to be analyzed from the same company. This design allows for some flexibility in expanding the studies, but also prevents heavy repeatability in standardized
 information describing the metadata of the patients which stays the same through the length of the trial. 
 
-![Database_design_diagram](design_docs/database_design)
+![Database_design_diagram](design_docs/database_flow_diagram.png)
 
 ## User Interface Design:
+![clinical_dashboard](design_docs/clinical_dashboard.png)
+
+For this project, I made the user dashboard using `Streamlit`. I did this because it is easy to use and already comes with a lot of features that would have taken a lot longer to implement from scratch. It also allows free deployment of web applications without having to utlize an AWS server. Although I could have done this, I wanted to pick the option that took the least amount of time and gave good flexibility in dashboard design. 
+
+### Uploading data:
+I added a way for the user to upload `.csv` files in the dashboard. If the data already exists in the datbase, then an error is thrown, logged and a message is displayed to the user letting them know. If the data is new, it is added to the database and the user can clear the file for the page to refresh and the new data to be displayed. 
+
 ### Layout:
 I chose to display the users data by projects. The dashboard allows for the user to select which project samples they want to view before displaying any statistics or information on the samples. 
 
-When the user uploads data, and there is data to be analyzed, the dashboard will present a summary of the data as the user requested in a scrollable table in the left column with the percentage of that cell population in that sample. To the right, the user can select different conditions, sample types, time points, treatments, or cell types to anlayze on a box plot. I used plotly to display the plots because it has similar function to ggplot where you can interact with the plot and visualize individual conditions and plot statitisics by hovering over the data. 
+When the user uploads data, and there is data to be analyzed, the dashboard will present a summary of the data as the user requested in a scrollable table in the left column with the percentage of that cell population in that sample. This data is filtered by the project selected. To the right, the user can select different conditions, sample types, time points, treatments, or cell types to anlayze on a box plot. If data is not available, no chart or statistics will be shown and a flag will appear to let the user know why. I used plotly to display the plots because it has similar function to ggplot where you can interact with the plot and visualize individual conditions and plot statitisics by hovering over the data. 
 
 Below the box plot are sumary statistics for comparing response vs no response so the user can see under what conditions were the responses seen actually significant. This part utilized a Welche's t-test to account for possible unequal variance between populations. 
 
-If the user want to visualize the initial conditions, all they have to do is select the project they want to work in, then select the conditions, sample type, then time point 0, treatment, and the statistics will automatically update to reflect the p-values for each cell type under the selected conditions. If the statistic is considered significant (p-value < 0.05) then it is flagged for the user. 
+If the user want to visualize the initial conditions, all they have to do is select the project they want to work in, then select the conditions, sample type, then time point 0, treatment, and the statistics will automatically update to reflect the p-values for each cell type under the selected conditions. If the statistic is considered significant (p-value < 0.05) then it is visually flagged for the user. 
+
+All tables and figures in this dashboard are interactable, and downloadable.
 
 ### Error Handling:
 Error handling was added and separated into two different parts - User facing errors, and logged errors. For every exception that occurs, I added a user facing error that displays in the user interface without displaying the error trace. If an error occurs, the user is notified and the error trace as well as a small summary message is printed into an error log that can be viewed by the developer. 
 
-### 
+I created a custome DataAccess class to allow better control of errors that occur and allow me to separate what is displayed to the user vs what is logged. The class has its own default message, but allows for a custom message to be used if the method being flagged doesnt use the custom decorator. 
+
