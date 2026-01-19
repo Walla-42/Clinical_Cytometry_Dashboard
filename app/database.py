@@ -30,6 +30,7 @@ class DataAccessError(Exception):
         self.context = context
 
 def log_db_errors(func):
+    """ A custom decorator funciton for automatically handling common dashboard errors"""
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
         try:
@@ -53,6 +54,8 @@ def log_db_errors(func):
     return wrapper
 
 class Project_Database():
+    """ A class for interacting with the dashboard relational database"""
+
     def __init__(self, db_name="bobs_flow_project.db"):
         try:
             self.conn = sqlite3.connect(db_name, check_same_thread=False)
@@ -158,6 +161,7 @@ class Project_Database():
         
     @log_db_errors
     def get_conditions(self, project_id):
+        """ A method for fetching unique conditions from the database"""
         self.cursor.execute(
             "SELECT DISTINCT condition FROM subjects WHERE project = ?", (project_id,)
         )
@@ -165,6 +169,7 @@ class Project_Database():
     
     @log_db_errors
     def get_genders(self, project_id):
+        """ A method for fetching unique genders from the database"""
         self.cursor.execute(
             "SELECT DISTINCT sex FROM subjects WHERE project = ?", (project_id,)
         )
@@ -172,6 +177,7 @@ class Project_Database():
 
     @log_db_errors
     def get_sample_types(self, project_id):
+        """ A method for fetching unique sample types from the database"""
         self.cursor.execute(
             """SELECT DISTINCT sam.sample_type 
             FROM samples sam
@@ -182,6 +188,7 @@ class Project_Database():
 
     @log_db_errors
     def get_time_points(self, project_id):
+        """ A method for fetching unique time points from the database"""
         self.cursor.execute(
             """SELECT DISTINCT sam.time_from_treatment_start 
             FROM samples sam
@@ -189,9 +196,22 @@ class Project_Database():
             WHERE sub.project = ?""", (project_id,)
         )
         return [row[0] for row in self.cursor.fetchall()]
+    
+    @log_db_errors
+    def get_subject_info(self, subject_ids):
+        """ A method for fetching metadata for given subjects"""
+        if not subject_ids:
+            return {}
+        placeholders = ','.join(['?' for _ in subject_ids])
+        self.cursor.execute(
+            f"SELECT subject, sex, response FROM subjects WHERE subject IN ({placeholders})",
+            subject_ids
+        )
+        return {row[0]: {'sex': row[1], 'response': row[2]} for row in self.cursor.fetchall()}
 
     @log_db_errors
     def get_treatments(self, project_id):
+        """ A method for fetching unique treatments from the databse"""
         self.cursor.execute(
             "SELECT DISTINCT treatment FROM subjects WHERE project = ?", (project_id,)
         )
@@ -199,6 +219,7 @@ class Project_Database():
     
     @log_db_errors
     def get_projects(self):
+        """ A method for selecting unique project ids from the database"""
         self.cursor.execute(
             "SELECT DISTINCT project FROM projects"
         )

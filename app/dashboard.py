@@ -199,12 +199,7 @@ def render_statistical_analysis(project_id):
         unique_subjects = df_stats['subject'].unique().tolist()
         
         if unique_subjects:
-            placeholders = ','.join(['?' for _ in unique_subjects])
-            db.cursor.execute(
-                f"SELECT subject, sex, response FROM subjects WHERE subject IN ({placeholders})",
-                unique_subjects
-            )
-            subject_info = {row[0]: {'sex': row[1], 'response': row[2]} for row in db.cursor.fetchall()}
+            subject_info = db.get_subject_info(unique_subjects)
             
             # Total calculations
             total_samples = len(df_stats)
