@@ -34,6 +34,8 @@ def log_db_errors(func):
     def wrapper(self, *args, **kwargs):
         try:
             return func(self, *args, **kwargs)
+        except DataAccessError:
+            raise
         except sqlite3.Error as e:
             logger.exception("SQLite error in %s", func.__name__)
             try:
@@ -116,7 +118,7 @@ class Project_Database():
 
 
     @log_db_errors
-    def load_csv_data(self, csv_data_filepath):
+    def load_csv_data(self, csv_file):
         """Takes a DataFrame and distributes it across the relational database tables.
         
         inputs:
@@ -125,30 +127,36 @@ class Project_Database():
         outputs: 
             None
         """
+        try:
+            dataframe = pd.read_csv(csv_file)
+            
+            projects = dataframe[['project']].drop_duplicates()
+            projects.to_sql('projects', self.conn, if_exists='append', index=False)
 
-        dataframe = pd.read_csv(csv_data_filepath)
+            subjects = dataframe[['subject', 'project', 'condition', 'age', 'sex', 'treatment', 'response']].drop_duplicates()
+            subjects.to_sql('subjects', self.conn, if_exists='append', index=False)
+
+            samples = dataframe[['sample', 'subject', 'sample_type', 'time_from_treatment_start']].drop_duplicates()
+            samples.to_sql('samples', self.conn, if_exists='append', index=False)
+
+            cell_cols = ['b_cell', 'cd8_t_cell', 'cd4_t_cell', 'nk_cell', 'monocyte']
+            insert_data = [
+                (row['sample'], population, row[population])
+                for _, row in dataframe.iterrows()
+                for population in cell_cols
+            ]
+            self.cursor.executemany(
+                "INSERT INTO cell_counts (sample, population, count) VALUES (?, ?, ?)",
+                insert_data
+            )
+            self.conn.commit()
+        except (sqlite3.IntegrityError) as e:
+            logger.exception("Error: User tried uploading duplicate data")
+            raise DataAccessError(
+                user_message="This data has already been loaded. Please upload new data.",
+                context={"csv_file": str(csv_file)}
+            ) from e
         
-        projects = dataframe[['project']].drop_duplicates()
-        projects.to_sql('projects', self.conn, if_exists='append', index=False)
-
-        subjects = dataframe[['subject', 'project', 'condition', 'age', 'sex', 'treatment', 'response']].drop_duplicates()
-        subjects.to_sql('subjects', self.conn, if_exists='append', index=False)
-
-        samples = dataframe[['sample', 'subject', 'sample_type', 'time_from_treatment_start']].drop_duplicates()
-        samples.to_sql('samples', self.conn, if_exists='append', index=False)
-
-        cell_cols = ['b_cell', 'cd8_t_cell', 'cd4_t_cell', 'nk_cell', 'monocyte']
-        insert_data = [
-            (row['sample'], population, row[population])
-            for _, row in dataframe.iterrows()
-            for population in cell_cols
-        ]
-        self.cursor.executemany(
-            "INSERT INTO cell_counts (sample, population, count) VALUES (?, ?, ?)",
-            insert_data
-        )
-        self.conn.commit()
-
     @log_db_errors
     def get_conditions(self, project_id):
         self.cursor.execute(
@@ -192,7 +200,7 @@ class Project_Database():
         return project_ids
 
     @log_db_errors
-    def get_relative_frequencies(self):
+    def get_relative_frequencies(self, project_id):
         """A method that calculates relative frequencies for all samples
         
         input:
@@ -216,11 +224,18 @@ class Project_Database():
                 c.count,
                 (CAST(c.count AS FLOAT) / t.total_count) * 100 AS percentage
             FROM cell_counts c
-            JOIN Totals t ON c.sample = t.sample
-        """
+            JOIN Totals t on c.sample = t.sample
+            JOIN samples sam on c.sample = sam.sample
+            JOIN subjects sub ON sam.subject = sub.subject
+            WHERE sub.project = ?
+            """
 
-        relative_frequency = pd.read_sql(query, self.conn)
-        return relative_frequency
+        self.cursor.execute(query, (project_id,))
+        rows = self.cursor.fetchall()
+        columns = ["sample", "total_count", "population", "count", "percentage"]
+        
+        data_dict = {col: [row[i] for row in rows] for i, col in enumerate(columns)}
+        return pd.DataFrame(data_dict)
 
     @log_db_errors
     def get_statistical_subset(self, condition, sample_type, time_point, treatment):
@@ -248,8 +263,12 @@ class Project_Database():
             AND sub.treatment = ?
         """
         
-        sample_subset = pd.read_sql(query, self.conn, params=[condition, sample_type, time_point, treatment])
-        return sample_subset
+        self.cursor.execute(query, (condition, sample_type, time_point, treatment))
+        rows = self.cursor.fetchall()
+        columns = ["response", "subject", "population", "percentage"]
+        
+        data_dict = {col: [row[i] for row in rows] for i, col in enumerate(columns)}
+        return pd.DataFrame(data_dict)
 
     def close_connection(self):
         logger.info("Closing database connection")

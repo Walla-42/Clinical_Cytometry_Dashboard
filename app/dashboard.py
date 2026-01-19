@@ -18,9 +18,9 @@ db = init_db()
 
 # Cached database queries
 @st.cache_data
-def get_relative_frequencies():
+def get_relative_frequencies(project_id):
     try:
-        return db.get_relative_frequencies()
+        return db.get_relative_frequencies(project_id)
     except DataAccessError:
         st.error("Failed to load relative frequencies data.")
         return None
@@ -91,20 +91,15 @@ def render_data_overview(df_freq):
         else:
             st.info("No data available yet. Please upload a CSV file.")
 
-def render_statistical_analysis():
+def render_statistical_analysis(project_id):
     """Render the statistical analysis section."""
     st.header("Statistical Analysis")
 
-    # Fetch filter options for selected project
-    projects = get_projects()
-    if not projects:
-        st.error("No projects available. Please upload data.")
-        st.stop()
-    select_project = st.selectbox("Project:", projects, index=0)
-    conditions = get_conditions(select_project)
-    sample_types = get_sample_types(select_project)
-    time_points = get_time_points(select_project)
-    treatments = get_treatments(select_project)
+    
+    conditions = get_conditions(project_id)
+    sample_types = get_sample_types(project_id)
+    time_points = get_time_points(project_id)
+    treatments = get_treatments(project_id)
     
     col1, col2, col3, col4, col5 = st.columns(5)
     
@@ -173,14 +168,18 @@ def render_statistical_analysis():
 # App starts here: 
 st.title("Bob's Clinical Trial Dashboard")
 
-overview_col, analysis_col = st.columns(2)
+# Fetch filter options for selected project
+projects = get_projects()
+if not projects:
+    st.error("No projects available. Please upload data.")
+    st.stop()
+select_project = st.selectbox("Project:", projects, index=0)
 
-# Render sections
+overview_col, analysis_col = st.columns(2)
 with overview_col:
-    # File upload
-    df_freq = get_relative_frequencies()
+    df_freq = get_relative_frequencies(select_project)
     render_data_overview(df_freq)
 
 with analysis_col:
-    render_statistical_analysis()
+    render_statistical_analysis(select_project)
 
