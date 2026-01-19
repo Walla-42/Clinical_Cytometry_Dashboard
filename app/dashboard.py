@@ -164,20 +164,22 @@ def render_statistical_analysis(project_id):
         with col6:
             pop = st.selectbox(
                 "Cell Type:", 
-                options=cell_populations if cell_populations else ["No cell types"],
+                options=(["All"] + cell_populations) if cell_populations else ["All"],
                 index=0
             )
-        
-        filtered_stats = df_stats[df_stats['population'] == pop]
+
+        filtered_stats = df_stats
+        if pop.lower() != "all":
+            filtered_stats = df_stats[df_stats['population'] == pop]
         
         # chart
         fig = px.box(
             filtered_stats, 
-            x="response", 
+            x="population", 
             y="percentage", 
-            color="response", 
+            color="response",
             points="all",
-            title=f"{pop} %: Responders vs Non-Responders",
+            title="All Cell Populations: Responders vs Non-Responders",
             labels={"percentage": "Relative Frequency (%)", "response": "Response"}
         )
         st.plotly_chart(fig, width="stretch")
