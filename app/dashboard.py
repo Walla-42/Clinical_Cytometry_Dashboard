@@ -104,7 +104,7 @@ def render_data_overview(df_freq):
                 st.error(str(e.user_message))
 
         if df_freq is not None:
-            st.dataframe(df_freq, width='stretch', height=1050)
+            st.dataframe(df_freq, width='stretch', height=1259)
         else:
             st.info("No data available yet. Please upload a CSV file.")
 
@@ -119,7 +119,7 @@ def render_statistical_analysis(project_id):
     treatments = get_treatments(project_id)
     gender = get_genders(project_id)
 
-    col1, col2, col3, col4, col5, col6 = st.columns(6)
+    col1, col2, col3, col4, col5 = st.columns(5)
     
     with col1:
         selected_condition = st.selectbox(
@@ -161,28 +161,36 @@ def render_statistical_analysis(project_id):
     if df_stats is not None and not df_stats.empty:
         cell_populations = sorted(df_stats['population'].unique())
         
-        with col6:
-            pop = st.selectbox(
-                "Cell Type:", 
-                options=(["All"] + cell_populations) if cell_populations else ["All"],
-                index=0
-            )
-
-        filtered_stats = df_stats
-        if pop.lower() != "all":
-            filtered_stats = df_stats[df_stats['population'] == pop]
-        
-        # chart
-        fig = px.box(
-            filtered_stats, 
-            x="population", 
-            y="percentage", 
-            color="response",
-            points="all",
-            title="All Cell Populations: Responders vs Non-Responders",
-            labels={"percentage": "Relative Frequency (%)", "response": "Response"}
+        pop = st.pills(
+            "Cell Type(s):", 
+            options=cell_populations if cell_populations else [],
+            selection_mode="multi"
         )
-        st.plotly_chart(fig, width="stretch")
+
+        if pop:
+            filtered_stats = df_stats[df_stats['population'].isin(pop)]
+            fig = px.box(
+                filtered_stats, 
+                x="population", 
+                y="percentage", 
+                color="response",
+                points="all",
+                title="All Cell Populations: Responders vs Non-Responders",
+                labels={"percentage": "Relative Frequency (%)", "response": "Response"}
+            )
+        else:
+            fig = px.box(
+                df_stats, 
+                x="population", 
+                y="percentage", 
+                color="response",
+                points="outliers",
+                title="All Cell Populations: Responders vs Non-Responders",
+                labels={"percentage": "Relative Frequency (%)", "response": "Response"}
+            )
+        st.plotly_chart(fig, width="stretch", height=600)
+        
+
         
         #============================================ Data Summary Section =======================================================
         st.subheader("Data Summary")
@@ -260,7 +268,7 @@ def render_statistical_analysis(project_id):
 
         if stats_results:
             stats_df = pd.DataFrame(stats_results).style.map(conditional_colors)
-            st.dataframe(stats_df, width='stretch', height=223)
+            st.dataframe(stats_df, width='stretch', height=210)
         else:
             st.warning("Insufficient data for statistical analysis.")
     else:
