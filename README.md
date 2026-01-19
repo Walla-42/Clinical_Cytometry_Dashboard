@@ -120,3 +120,5 @@ Error handling was added and separated into two different parts - User facing er
 
 I created a custome DataAccess class to allow better control of errors that occur and allow me to separate what is displayed to the user vs what is logged. The class has its own default message, but allows for a custom message to be used if the method being flagged doesnt use the custom decorator. 
 
+### Caching
+In order to remove the overhead from fetching all the unique keys in the database based on the data filters, I set these values to cache the data so that they can be reloaded without requerying the database every time the page loads. The initial query requires some load time, but every interaction after that is quick and doesnt require the data to be loaded again. 

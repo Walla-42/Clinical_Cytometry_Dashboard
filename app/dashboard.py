@@ -66,9 +66,17 @@ def get_treatments(project_id):
         return None
 
 @st.cache_data
-def get_statistical_subset(condition, sample_type, time_point, treatment):
+def get_genders(project_id):
     try:
-        return db.get_statistical_subset(condition, sample_type, time_point, treatment)
+        return db.get_genders(project_id)
+    except DataAccessError:
+        st.error("Failed to load gender information.")
+        return None
+
+@st.cache_data
+def get_statistical_subset(condition, sample_type, time_point, treatment, gender=None):
+    try:
+        return db.get_statistical_subset(condition, sample_type, time_point, treatment, gender)
     except DataAccessError:
         st.error("Failed to load statistical subset.")
         return None
@@ -109,8 +117,9 @@ def render_statistical_analysis(project_id):
     sample_types = get_sample_types(project_id)
     time_points = get_time_points(project_id)
     treatments = get_treatments(project_id)
-    
-    col1, col2, col3, col4, col5 = st.columns(5)
+    gender = get_genders(project_id)
+
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
     
     with col1:
         selected_condition = st.selectbox(
@@ -120,9 +129,9 @@ def render_statistical_analysis(project_id):
         )
     
     with col2:
-        selected_sample_type = st.selectbox(
-            "Sample Type:", 
-            options=sample_types if sample_types else ["No sample types"],
+        selected_treatment = st.selectbox(
+            "Treatment:", 
+            options=treatments if treatments else ["No treatments"],
             index=0
         )
     
@@ -134,19 +143,25 @@ def render_statistical_analysis(project_id):
         )
     
     with col4:
-        selected_treatment = st.selectbox(
-            "Treatment:", 
-            options=treatments if treatments else ["No treatments"],
+        selected_sample_type = st.selectbox(
+            "Sample Type:", 
+            options=sample_types if sample_types else ["No sample types"],
+            index=0
+        )
+    with col5:
+        selected_gender = st.selectbox(
+            "Gender",
+            options=(["All"] + gender) if gender else ["All"],
             index=0
         )
     
     # Fetch statistical data
-    df_stats = get_statistical_subset(selected_condition, selected_sample_type, selected_time_points, selected_treatment)
+    df_stats = get_statistical_subset(selected_condition, selected_sample_type, selected_time_points, selected_treatment, selected_gender)
     
     if df_stats is not None and not df_stats.empty:
         cell_populations = sorted(df_stats['population'].unique())
         
-        with col5:
+        with col6:
             pop = st.selectbox(
                 "Cell Type:", 
                 options=cell_populations if cell_populations else ["No cell types"],

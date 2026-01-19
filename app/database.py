@@ -162,6 +162,13 @@ class Project_Database():
             "SELECT DISTINCT condition FROM subjects WHERE project = ?", (project_id,)
         )
         return [row[0] for row in self.cursor.fetchall()]
+    
+    @log_db_errors
+    def get_genders(self, project_id):
+        self.cursor.execute(
+            "SELECT DISTINCT sex FROM subjects WHERE project = ?", (project_id,)
+        )
+        return [row[0] for row in self.cursor.fetchall()]
 
     @log_db_errors
     def get_sample_types(self, project_id):
@@ -237,7 +244,7 @@ class Project_Database():
         return pd.DataFrame(data_dict)
 
     @log_db_errors
-    def get_statistical_subset(self, condition, sample_type, time_point, treatment):
+    def get_statistical_subset(self, condition, sample_type, time_point, treatment, gender=None):
         """A method that filters data for responder vs non-responder analysis
 
         inputs:
@@ -261,11 +268,17 @@ class Project_Database():
             AND sam.time_from_treatment_start = ?
             AND sub.treatment = ?
         """
-        
-        self.cursor.execute(query, (condition, sample_type, time_point, treatment))
+
+        params = [condition, sample_type, time_point, treatment]
+
+        if gender and gender.lower() != "all":
+            query += "AND sub.sex = ?"
+            params.append(gender)
+
+        self.cursor.execute(query, params)
         rows = self.cursor.fetchall()
-        columns = ["response", "subject", "population", "percentage"]
         
+        columns = ["response", "subject", "population", "percentage"]
         data_dict = {col: [row[i] for row in rows] for i, col in enumerate(columns)}
         return pd.DataFrame(data_dict)
 
