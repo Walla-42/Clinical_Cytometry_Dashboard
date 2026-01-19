@@ -86,10 +86,7 @@ def render_data_overview(df_freq):
     with st.container():
         st.header("Data Overview")
 
-        if "file_upload_key" not in st.session_state:
-            st.session_state.file_upload_key = 0
-
-        uploaded_file = st.file_uploader("Upload cell count data", type=["csv"], key=f"upload_file_{st.session_state.file_upload_key}")
+        uploaded_file = st.file_uploader("Upload cell count data", type=["csv"], key=f"upload_file")
         if uploaded_file:
             try:
                 db.load_csv_data(uploaded_file)
@@ -97,8 +94,6 @@ def render_data_overview(df_freq):
                 st.cache_data.clear()
             except DataAccessError as e:
                 st.error(str(e.user_message))
-
-            st.session_state.file_upload_key += 1
 
         if df_freq is not None:
             st.dataframe(df_freq, width='stretch', height=1050)
