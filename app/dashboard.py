@@ -74,6 +74,13 @@ def get_statistical_subset(condition, sample_type, time_point, treatment):
         return None
 
 # View rendering functions
+def conditional_colors(var):
+    if var.lower() == "yes":
+        return "background-color: #55c960"
+    elif var.lower() == "no":
+        return "background-color: #bf560b"
+    return ""
+
 def render_data_overview(df_freq):
     """Render the data overview section."""
     with st.container():
@@ -94,7 +101,7 @@ def render_data_overview(df_freq):
             st.session_state.file_upload_key += 1
 
         if df_freq is not None:
-            st.dataframe(df_freq, width='stretch', height=600)
+            st.dataframe(df_freq, width='stretch', height=1050)
         else:
             st.info("No data available yet. Please upload a CSV file.")
 
@@ -165,8 +172,61 @@ def render_statistical_analysis(project_id):
         )
         st.plotly_chart(fig, width="stretch")
         
-        st.subheader("Statistics")
+                # Data Overview
+        st.subheader("Data Summary")
         
+        # Get unique subjects and their metadata for the filtered data
+        unique_subjects = df_stats['subject'].unique().tolist()
+        
+        if unique_subjects:
+            placeholders = ','.join(['?' for _ in unique_subjects])
+            db.cursor.execute(
+                f"SELECT subject, sex, response FROM subjects WHERE subject IN ({placeholders})",
+                unique_subjects
+            )
+            subject_info = {row[0]: {'sex': row[1], 'response': row[2]} for row in db.cursor.fetchall()}
+            
+            # Total calculations
+            total_samples = len(df_stats)
+            total_subjects = len(unique_subjects)
+            total_male = sum(1 for subj in unique_subjects if subject_info.get(subj, {}).get('sex') == 'M')
+            total_female = sum(1 for subj in unique_subjects if subject_info.get(subj, {}).get('sex') == 'F')
+            
+            # Responder calculations
+            responder_subjects = df_stats[df_stats['response'] == 'yes']['subject'].unique().tolist()
+            responder_samples = len(df_stats[df_stats['response'] == 'yes'])
+            responder_male = sum(1 for subj in responder_subjects if subject_info.get(subj, {}).get('sex') == 'M')
+            responder_female = sum(1 for subj in responder_subjects if subject_info.get(subj, {}).get('sex') == 'F')
+            
+            # Non-responder calculations
+            non_responder_subjects = df_stats[df_stats['response'] == 'no']['subject'].unique().tolist()
+            non_responder_samples = len(df_stats[df_stats['response'] == 'no'])
+            non_responder_male = sum(1 for subj in non_responder_subjects if subject_info.get(subj, {}).get('sex') == 'M')
+            non_responder_female = sum(1 for subj in non_responder_subjects if subject_info.get(subj, {}).get('sex') == 'F')
+            
+            # Display in 3 columns
+            col_total, col_responder, col_non_responder = st.columns(3)
+            
+            with col_total:
+                st.metric("Total Samples", total_samples)
+                st.metric("Total Subjects", total_subjects)
+                st.write(f"**Males:** {total_male}")
+                st.write(f"**Females:** {total_female}")
+            
+            with col_responder:
+                st.metric("Responder Samples", responder_samples)
+                st.metric("Responder Subjects", len(responder_subjects))
+                st.write(f"**Males:** {responder_male}")
+                st.write(f"**Females:** {responder_female}")
+            
+            with col_non_responder:
+                st.metric("Non-Responder Samples", non_responder_samples)
+                st.metric("Non-Responder Subjects", len(non_responder_subjects))
+                st.write(f"**Males:** {non_responder_male}")
+                st.write(f"**Females:** {non_responder_female}")
+
+
+        st.subheader("Statistics")
         # Calculate t-tests for each cell population
         stats_results = []
         for cell_type in sorted(df_stats['population'].unique()):
@@ -175,7 +235,7 @@ def render_statistical_analysis(project_id):
             
             if len(responders) > 0 and len(non_responders) > 0:
                 t_stat, p_value = ttest_ind(responders, non_responders, equal_var=False)
-                significant = "Yes" if p_value < 0.05 else "No"
+                significant = "Yes" if p_value < 0.05 else "No" # type: ignore 
                 stats_results.append({
                     "Cell Type": cell_type,
                     "T-Statistic": f"{t_stat:.4f}",
@@ -184,8 +244,8 @@ def render_statistical_analysis(project_id):
                 })
         
         if stats_results:
-            stats_df = pd.DataFrame(stats_results)
-            st.dataframe(stats_df, width='stretch', height=200)
+            stats_df = pd.DataFrame(stats_results).style.map(conditional_colors)
+            st.dataframe(stats_df, width='stretch', height=223)
         else:
             st.warning("Insufficient data for statistical analysis.")
     else:

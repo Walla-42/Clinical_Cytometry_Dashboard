@@ -7,7 +7,7 @@ import functools
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-file_handler = RotatingFileHandler("app.log", maxBytes=1_000_000, backupCount=2)
+file_handler = RotatingFileHandler("app.log", maxBytes=1_000_000, backupCount=1)
 file_handler.setLevel(logging.ERROR)
 log_format = logging.Formatter("%(asctime)s %(levelname)s %(name)s - %(message)s")
 file_handler.setFormatter(log_format)
